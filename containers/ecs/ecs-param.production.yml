@@ -1,0 +1,19 @@
+version: 1
+task_definition:
+  ecs_network_mode: awsvpc
+  task_execution_role: ${APP_NAME}_ecs
+  task_size:
+    cpu_limit: ${RAILS_CPU}
+    mem_limit: ${RAILS_MEMORY}
+  services:
+    rails:
+      essential: true
+run_params:
+  network_configuration:
+    awsvpc_configuration:
+      subnets:
+        - subnet-xxxxxxxxxxxxxxxxx # サブネットA
+        - subnet-yyyyyyyyyyyyyyyyy # サブネットC
+      security_groups:
+        - sg-zzzzzzzzzzzzzzzzz # 使用するセキュリティグループ
+      assign_public_ip: ENABLED

@@ -1,0 +1,151 @@
+targets: &targets
+  only:
+    - master
+    # - feature/fargate
+defaults: &defaults
+  working_directory: ~/build_work
+
+version: 2
+jobs:
+  build:
+    <<: *defaults
+    docker:
+      - image: sikmi/ruby25-deployer-docker
+    steps:
+      # gitからソース取得
+      - checkout
+      # ビルド環境内でDockerを使う場合に必要な設定
+      #
+      # ビルド環境外にRemote Docker Daemonが立ちDokerでのオペレーションはそのRemote Docker daemonの中で行われる。
+      # このため、ビルド処理内で、
+      #   docker run -v (ビルド環境内のディレクトリ):(コンテナ内のディレクトリ) IMAGE_NAME COMMAND
+      # などをしても、「(ビルド環境内のディレクトリ)」は見えないので注意
+      #「(ビルド環境内のディレクトリ)」というのが、実際にはRemote Daemon内での場所になるため
+      - setup_remote_docker
+      - restore_cache:
+          name: Restoring docker cache
+          keys:
+            # キャッシュのキー名にdigestのsuffix付きとsuffix無しの2つを指定しているのは、
+            # digestが変わって新しいキャッシュになるときに、フルビルドを避けるために過去のキャッシュをrestoreしている。
+            # CircleCI2.0では、キャッシュのキー名の前方一致で検索されるためこれが可能。
+            - tmp6-cache-docker-image-{{ .Branch }}-{{ checksum "containers/ecs/rails/Dockerfile" }}
+            - tmp6-cache-docker-image-{{ .Branch }}-
+      - restore_cache:
+          name: Restoring bundle cache
+          keys:
+            - tmp6-cache-bundle-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+            - tmp6-cache-bundle-{{ .Branch }}-
+      # app/assetsの中の最新のcommit hashで変更をチェック
+      - run:
+          name: compute assets digest
+          command: |
+            git log -1 --format="%h" app/assets > assets-digest
+      - restore_cache:
+          name: Restoring assets cache
+          keys:
+            - tmp6-cache-assets-{{ .Branch }}-{{ checksum "assets-digest" }}
+            - tmp6-cache-assets-{{ .Branch }}-
+      - run:
+          name: build docker
+          command: |
+            if [ $CIRCLE_BRANCH = 'master' ]; then
+              containers/ecs/bin/build_docker.sh $CIRCLE_SHA1 production
+            elif [ $CIRCLE_BRANCH = 'feature/fargate' ]; then
+              containers/ecs/bin/build_docker.sh $CIRCLE_SHA1 production
+            fi
+      - save_cache:
+          name: Saving Docker Image cache
+          key: tmp6-cache-docker-image-{{ .Branch }}-{{ checksum "containers/ecs/rails/Dockerfile" }}
+          paths:
+            - "~/caches/docker"
+      - save_cache:
+          name: Saving bundle cache
+          key: tmp6-cache-bundle-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+          paths:
+            - "~/caches/bundle"
+      - save_cache:
+          name: Saving assets cache
+          key: tmp6-cache-assets-{{ .Branch }}-{{ checksum "assets-digest" }}
+          paths:
+            - "public/production/assets"
+            - "public/assets"
+            - "tmp/cache/assets"
+  deploy:
+    <<: *defaults
+    docker:
+      - image: sikmi/ruby25-deployer-docker
+    steps:
+      - checkout
+      - run:
+          name: deploy
+          command: |
+            if [ $CIRCLE_BRANCH = 'master' ]; then
+              containers/ecs/bin/deploy.sh $CIRCLE_SHA1 production $CIRCLE_BUILD_NUM
+            elif [ $CIRCLE_BRANCH = 'feature/fargate' ]; then
+              containers/ecs/bin/deploy.sh $CIRCLE_SHA1 production $CIRCLE_BUILD_NUM
+            fi
+            ##  test:
+            ##    docker:
+            ##      - image: circleci/ruby:2.4-node
+            ##        environment:
+            ##          BUNDLE_JOBS: 3
+            ##          BUNDLE_RETRY: 3
+            ##          BUNDLE_PATH: vendor/bundle
+            ##          DATABASE_HOST: 127.0.0.1
+            ##          DATABASE_USER: root
+            ##          RAILS_ENV: test
+            ##          ELASTICSEARCH_HOST: http://localhost:9200
+            ##      - image: circleci/mysql:5.6
+            ##        command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci --ft_min_word_len=1
+            ##        environment:
+            ##          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+            ##      # kuromojiやICUプラグインが必要になったらカスタムイメージが必要
+            ##      - image: docker.elastic.co/elasticsearch/elasticsearch:6.2.4
+            ##    steps:
+            ##      - checkout
+            ##      - restore_cache:
+            ##          keys:
+            ##            - tmp6-test-job-cache-bundle-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+            ##            - tmp6-test-job-cache-bundle-{{ .Branch }}-
+            ##      - run:
+            ##          name: Bundle Install
+            ##          command: bundle install
+            ##      - save_cache:
+            ##          key: tmp6-test-job-cache-bundle-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+            ##          paths:
+            ##            - vendor/bundle
+            ##      - run:
+            ##          name: Database setup
+            ##          command: bin/rails db:create && bin/rails db:schema:load --trace
+            ##      - type: shell
+            ##        command: |
+            ##          bundle exec rspec --profile 10 \
+            ##                            --format RspecJunitFormatter \
+            ##                            --out test_results/rspec.xml \
+            ##                            --format progress \
+            ##                            $(circleci tests glob "spec/**/*_spec.rb" | circleci tests split --split-by=timings)
+#
+# 現状並列にする処理はないがあとから差し込める用にworkflow化しておく
+#
+# build_docker
+#      |
+#      +
+#      |
+#    delpy
+#
+workflows:
+  version: 2
+  sample-project-build:
+    jobs:
+      ## - test
+      - build:
+          filters:
+            branches:
+              <<: *targets
+      - deploy:
+          filters:
+            branches:
+              <<: *targets
+          requires:
+            - build
+              ## - test
