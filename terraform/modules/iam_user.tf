@@ -6,58 +6,61 @@ resource "aws_iam_access_key" "key" {
   user = "${aws_iam_user.user.name}"
 }
 
+data "aws_iam_policy_document" "policy_document" {
+  statement {
+    actions = [
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      "arn:aws:s3:::sample-project"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "s3:prefix"
+
+      values = [
+        ""
+      ]
+    }
+  }
+
+  statement {
+    actions = [
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      "arn:aws:s3:::sample-project",
+    ]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+
+      values = [
+        "production",
+        "production/*"
+      ]
+    }
+  }
+
+  statement {
+    actions = [
+      "s3:*",
+    ]
+
+    resources = [
+      "arn:aws:s3:::sample-project/production/*",
+    ]
+  }
+}
+
 resource "aws_iam_policy" "policy" {
   name        = "sample-project-policy"
   description = "sample-project policy"
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-      {
-          "Effect": "Allow",
-          "Action": [
-              "s3:ListBucket"
-          ],
-          "Resource": [
-              "arn:aws:s3:::sample-project"
-          ],
-          "Condition": {
-              "StringEquals": {
-                  "s3:prefix": [
-                      ""
-                  ]
-              }
-          }
-      },
-      {
-          "Effect": "Allow",
-          "Action": [
-              "s3:ListBucket"
-          ],
-          "Resource": [
-              "arn:aws:s3:::sample-project"
-          ],
-          "Condition": {
-              "StringLike": {
-                  "s3:prefix": [
-                      "production",
-                      "production/*"
-                  ]
-              }
-          }
-      },
-      {
-          "Effect": "Allow",
-          "Action": [
-              "s3:*"
-          ],
-          "Resource": [
-              "arn:aws:s3:::sample-project/production/*"
-          ]
-      }
-  ]
-}
-EOF
+  policy = "${data.aws_iam_policy_document.policy_documentt.json}"
 }
 
 resource "aws_iam_policy_attachment" "attach" {
