@@ -3,8 +3,16 @@ resource "aws_iam_role" "iam_role" {
   name = "${var.name}_ecs"
 }
 
+data "template_file" "execution_assume_role_policy" {
+  template = ""${file("${path.module}/execution_assume_role_policy.json")}"
+
+  vars {
+    region = "${var.region}"
+  }
+}
+
 resource "aws_iam_role" "execution" {
-  assume_role_policy = "${file("${path.module}/execution_assume_role_policy.json")}"
+  assume_role_policy = "${data.template_file.execution_assume_role_policy.rendered}"
   name = "${var.name}_execution"
 }
 

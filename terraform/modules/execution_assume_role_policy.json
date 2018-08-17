@@ -5,7 +5,7 @@
       "Action": "sts:AssumeRole",
       "Effect": "Allow",
       "Principal": {
-        "Service": "logs.${var.region}.amazonaws.com"
+        "Service": "logs.${region}.amazonaws.com"
       }
     }
   ]
