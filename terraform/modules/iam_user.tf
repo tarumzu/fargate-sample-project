@@ -60,7 +60,7 @@ data "aws_iam_policy_document" "policy_document" {
 resource "aws_iam_policy" "policy" {
   name        = "sample-project-policy"
   description = "sample-project policy"
-  policy = "${data.aws_iam_policy_document.policy_documentt.json}"
+  policy = "${data.aws_iam_policy_document.policy_document.json}"
 }
 
 resource "aws_iam_policy_attachment" "attach" {
