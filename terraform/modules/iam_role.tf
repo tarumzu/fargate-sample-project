@@ -1,38 +1,10 @@
 resource "aws_iam_role" "iam_role" {
-  assume_role_policy = <<-JSON
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Action": "sts:AssumeRole",
-        "Effect": "Allow",
-        "Principal": {
-          "Service": ["ecs.amazonaws.com", "ecs-tasks.amazonaws.com"]
-        }
-      }
-    ]
-  }
-  JSON
-
+  assume_role_policy = "${file("./ecs_assume_role_policy.json")}"
   name = "${var.name}_ecs"
 }
 
 resource "aws_iam_role" "execution" {
-  assume_role_policy = <<-JSON
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Action": "sts:AssumeRole",
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "logs.${var.region}.amazonaws.com"
-        }
-      }
-    ]
-  }
-  JSON
-
+  assume_role_policy = "${file("./execution_assume_role_policy.json")}"
   name = "${var.name}_execution"
 }
 
@@ -60,14 +32,3 @@ data "aws_iam_policy_document" "autoscaling-assume-role-policy" {
     }
   }
 }
-
-//resource "aws_iam_role" "ecs_autoscale_role" {
-//  name               = "ecs_autoscale_role"
-//  assume_role_policy = "${data.aws_iam_policy_document.autoscaling-assume-role-policy.json}"
-//}
-//
-//resource "aws_iam_policy_attachment" "ecs_autoscale_role_attach" {
-//  name       = "ecs-autoscale-role-attach"
-//  roles      = ["${aws_iam_role.ecs_autoscale_role.name}"]
-//  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole"
-//}
