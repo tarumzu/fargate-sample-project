@@ -1,10 +1,10 @@
 resource "aws_iam_role" "iam_role" {
-  assume_role_policy = "${file("./ecs_assume_role_policy.json")}"
+  assume_role_policy = "${file("${path.module}/ecs_assume_role_policy.json")}"
   name = "${var.name}_ecs"
 }
 
 resource "aws_iam_role" "execution" {
-  assume_role_policy = "${file("./execution_assume_role_policy.json")}"
+  assume_role_policy = "${file("${path.module}/execution_assume_role_policy.json")}"
   name = "${var.name}_execution"
 }
 
