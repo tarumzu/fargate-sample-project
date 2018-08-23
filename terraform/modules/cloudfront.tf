@@ -2,7 +2,7 @@ resource "aws_cloudfront_distribution" "cf" {
   enabled = true
   is_ipv6_enabled = true
   aliases = ["${var.dns}"]
-  comment = "sample"
+  comment = "${var.name}"
 
   origin {
       domain_name = "${aws_alb.alb.dns_name}"
